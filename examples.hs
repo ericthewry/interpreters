@@ -1,7 +1,7 @@
 -- import Interp
 -- import Defunc
--- import Continuation
-import DefuncCont
+import Continuation
+-- import DefuncCont
 
 --  Examples
 
@@ -108,3 +108,9 @@ cbn_inherit :: Exp
 cbn_inherit = (lambda "x" $ lambda "y" $ y)
               `app` omega
               `app` EConst 47
+
+closure_example = lambda "x" (lambda "y" x) `app` EConst 5
+
+-- continu_example = continu (Function (lambda "x" (lambda "y" x) `Appl` EConst 5) Init Fin)
+--                   (eval (lambda "x" (lambda "y" x)) Init Fin)
+

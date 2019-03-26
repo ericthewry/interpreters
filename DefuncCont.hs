@@ -126,44 +126,42 @@ _ !! _ = error "Hopeless"
 
 {- Continuations are Linked Lists -}
 
-data Cont =
+data Cont = -- abstract machine
   Fin             
   | Function Appl Env Cont   -- EvOpn
   | Argument Value Cont      -- ApFun
   | Branch Cond Env Cont     -- Branch
   deriving (Eq, Show)
 
-continue :: Cont -> Value -> Value
-continue Fin v = v
-continue (Function (Appl _ arg) env cont) v =
+continu :: Cont -> Value -> Value
+continu Fin v = v
+continu (Function (Appl _ arg) env cont) v =
   {- Invariant on `Function`:
-     + v is a function,
+     + v the evaluation of f
      + arg is the argument
    -}
   eval arg env $   -- evaluate the argument
   Argument v cont  -- apply it to the function in the continuation
   
-continue (Argument (VArr fun) cont) v =
+continu (Argument (VArr vfun) cont) v =
   {- Invariant on `Argument`:
-     + `v` is the argument to `fun`
+     + `v` is the argument to `vfun`
    -}
-  apply fun v cont
+  apply vfun v cont
 
-continue (Branch (Cond _ etrue efalse) env cont) v =
+continu (Branch (Cond _ etrue efalse) env cont) (VBool b) =
   {- Invariant on `Branch`
-     + `v` is a boolean premise
-     + if `v` evaluates to true, evaluate `etrue`
-     + if `v` evaluates to false, evaluate `efalse`
+     + `b` is a boolean premise
    -}
-  if to_bool v
+  if b
   then eval etrue  env cont
   else eval efalse env cont
 
 
 apply :: FunVal -> Value -> Cont -> Value
-apply Succ        arg cont = VInt (to_int arg + 1) & continue cont
-apply Equal       arg cont = (VArr $ EqConst arg)  & continue cont
-apply (EqConst v) arg cont = (VBool(v == arg))     & continue cont
+apply Succ        arg ation = VInt (to_int arg + 1) & continu ation
+apply Equal       arg ation = (VArr $ EqConst arg)  & continu ation
+apply (EqConst v) arg ation = (VBool(v == arg))     & continu ation
 
 apply (Closure (Lambda var body) env) arg cont =
   let env' = Simp var arg env in
@@ -172,14 +170,13 @@ apply (Closure (Lambda var body) env) arg cont =
 
 
 eval :: Exp -> Env -> Cont -> Value
+{- replace `cont` with `continu ation` -}
+eval (EConst c) _ ation    = VInt c                 & continu ation
+eval (EVar v) env ation    = env !! v               & continu ation
+eval (ELambda f) env ation = (VArr $ Closure f env) & continu ation 
 
-{- replace `cont` with `continue cont` -}
-eval (EConst c) _ cont    = VInt c                 & continue cont
-eval (EVar v) env cont    = env !! v               & continue cont
-eval (ELambda f) env cont = (VArr $ Closure f env) & continue cont 
-
-eval (ELetRec l@(LetRec var assgn body)) env cont =
-  let env' = Rec l env in -- no change
+eval (ELetRec l@(LetRec _ _ body)) env cont =
+  let env' = Rec l env in -- no change & NOTHING SERIOUS
     eval body env' cont
 
 eval (EAppl a@(Appl fun arg)) env cont =
@@ -194,5 +191,3 @@ eval (ECond cond@(Cond test etrue efalse)) env cont =
 
 interp :: Exp -> Value
 interp exp = eval exp Init Fin
-  
--- TODO Examples

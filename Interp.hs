@@ -6,7 +6,6 @@ import Prelude hiding ((!!))
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-
 {- Type Aliases for Readability -}
 type Var = String
 type Const = Int
@@ -20,7 +19,7 @@ data Appl = Appl Exp Exp   -- Appl f x  is `f (x)`
 instance Show Appl where
   show (Appl fun arg)  = show fun ++ "(" ++ show arg ++ ")"
 
-data Lambda = Lambda Var Exp -- Lambda x e is `\x.e`
+data Lambda = Lambda Var Exp -- Lambda x e is `\x . e`
   deriving Eq
 
 instance Show Lambda where
@@ -38,7 +37,7 @@ data LetRec = LetRec Var Lambda Exp  -- LetRec x f e is letrec x be f in e
 instance Show LetRec where
   show (LetRec x f e) = "let rec " ++ x ++ " be " ++ show f ++ " in " ++ show e
 
-data Exp =
+data Exp = -- Const U Var U Appl U Lambda U Cond U LetRec
   EConst Const
   | EVar Var
   | EAppl Appl
@@ -87,7 +86,7 @@ instance Eq Value where
   VBool b == VBool b' = b == b
   VInt i == VInt i' = i == i'
   VArr _ == VArr _ = error "Function Equality?? Preposterous"
-  v == v' = error $ "INcomparable types: " ++ show v ++ " and " ++ show v'
+  v == v' = error $ "Apples and Oranges: " ++ show v ++ " and " ++ show v'
 
 to_bool :: Value -> Bool
 to_bool (VBool b) = b
@@ -104,18 +103,20 @@ type Env = (Var -> Value)
 eval :: Exp -> Env -> Value
 {- constants are constant! -}
 eval (EConst c) env = VInt c
+
 {- lookup variables in the Environment -}
 eval (EVar v) env = env !! v
 
 eval (EAppl (Appl fun arg)) env =
   {- evaluate the function -}
-  let VArr f = eval fun env in -- pattern matching trick gives error if not VArr
+  let VArr f = eval fun env in 
   {- evaluate the argument -}
   let a = eval arg env in  
   f a -- apply
   
 eval (ELambda f) env =
-  VArr $ evlambda f env -- evaluate the lambda! [BELOW]
+  -- evaluate the lambda! [BELOW]
+  VArr $ evlambda f env
   
 eval (ECond (Cond test etrue efalse)) env =
     if to_bool $           
@@ -125,15 +126,17 @@ eval (ECond (Cond test etrue efalse)) env =
          
 eval (ELetRec (LetRec var {-be-} assgn {-in-} body)) env =
   -- evaluate the body in the newly-constructed environment
-  eval body $ recExtend env var assgn
+  -- let var be assgn in body
+  let env' = recExtend env var assgn in 
+  eval body env'
 
   
 evlambda :: Lambda -> Env -> Value -> Value
-evlambda (Lambda param body) env arg =
-  let env' = extend param arg env in
-    eval body env'
+evlambda (Lambda param body) env arg = 
+  let env' = extend param arg env in   -- env[param |-> arg]
+    eval body env'                   
   
-recExtend :: Env -> Var -> Lambda -> Env
+recExtend :: Env -> Var -> Lambda -> Env -- Var -> Value
 recExtend env key vlam =
   let selfEnv = recExtend env key vlam in        
     \query -> 
@@ -152,10 +155,10 @@ extend key val env query | query == key = val
 
 initEnv :: Env
 initEnv "succ"   = VArr (\(VInt x) -> VInt $ succ x )
-initEnv "equal"  = VArr (\ x -> VArr ( \ y -> VBool ( x == y)))
+initEnv "equal"  = VArr (\ x -> VArr ( \ y -> VBool (x == y)))
 initEnv _ = error "Wasted"
 
 interp :: Exp -> Value
-interp e = eval e initEnv
+interp e = eval e $ initEnv
 
 

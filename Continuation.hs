@@ -127,16 +127,20 @@ _ !! _ = undefined
 
 -- Continuation Interpreter
 
+-- CBN Defining Language & CBV Defined Language
+
 -- Serious functions!?!?
 --  dont terminate
 --  but that's hard to compute
 --  so we just say "we can't prove that they terminate"
 
-
 -- Design Principle
 -- If a function `g` calls a serious function `f`,
 -- make sure that `g` terminates when `f` terminates
 -- and that it returns the result of `f`.
+-- g x = f x
+-- g x = f (1 + x)
+-- g x = (f x) + 1 ******
 
 -- Note that `g` is also serious!
 
@@ -150,8 +154,7 @@ _ !! _ = undefined
    becomes f' defined below
 
    f' x1 ... xn c  ==  c (f x1 ... xn)
-                   ==  f x1 ... xn & c    evocative Haskell syntax!!
-
+                   ==  f x1 ... xn  & c    evocative Haskell syntax!!
 -}
 
 {- Continuations are functions on values -}
@@ -184,7 +187,7 @@ eval (ELetRec l@(LetRec var assgn body)) env cont =
   {-- Why? the following line is "serious",
      but contains no "serious" operations --}
   let env' = Rec l env in
-  eval body env' cont
+  eval body env' cont 
 
 eval (EAppl (Appl fun arg)) env cont =
   {- interesting case -}
@@ -194,9 +197,7 @@ eval (EAppl (Appl fun arg)) env cont =
    -  3. apply f to a, i.e. `f a` 
    -  4. apply cont to `f a`
    -}
-  -- OLD let VArr f = eval fun env in
-  -- OLD let a = eval arg env in  
-  -- OLD apply f a
+
   eval fun env $ \(VArr f) -> -- 1
   eval arg env $ \a ->        -- 2
   apply f a cont              -- 3 & 4
@@ -209,12 +210,8 @@ eval (ECond (Cond test etrue efalse)) env cont =
    - 2. Evaluate the true branch OR THE FALSE BRANCH
    - 3. apply cont to the result of 2
    -}
-  -- OLD if to_bool $
-  --      eval test   env cont         
-  -- OLD then eval etrue  env cont         
-  -- OLD else eval efalse env cont
-  eval test env $ \b ->
-  if to_bool b
+  eval test env $ \(VBool b) ->
+  if b
   then eval etrue  env cont
   else eval efalse env cont
 

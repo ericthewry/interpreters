@@ -72,7 +72,7 @@ cond b t f = ECond $ Cond b t f
 
 
 data FunVal =
-  Closure Lambda Env
+  Closure Lambda Env 
   | Succ
   | Equal
   | EqConst Value
@@ -81,7 +81,7 @@ data FunVal =
 data Value =
   VBool Bool
   | VInt Int
-  | VArr FunVal
+  | VArr FunVal -- Value -> Value
   deriving Eq
 
 instance Show Value where
@@ -104,9 +104,9 @@ to_func (VBool _) = error "Kaput"
 
 {- environments are association-lists -}
 data Env =
-  Init                  -- {}
-  | Simp Var Value Env  -- \x v e.   e [x -> v]
-  | Rec LetRec Env      -- ??? 
+  Init                 -- {}
+  | Simp Var Value Env -- \x v e. e [x -> v]
+  | Rec LetRec Env     -- ??? 
   deriving Eq
 
 instance Show Env where
@@ -144,23 +144,27 @@ apply Equal       arg = VArr $ EqConst arg
 apply (EqConst v) arg = VBool(v == arg)
 
 apply (Closure (Lambda var body) env) arg =
-  eval body $ Simp var arg env
+  let env' = Simp var arg env in
+  eval body env'
 
 
 eval :: Exp -> Env -> Value
 eval (EConst c) _ = VInt c   -- constant
 eval (EVar v) env = env !! v  -- lookup
-eval (EAppl (Appl fun arg)) env =
-  let VArr f = eval fun env in -- eval fun
-  let a = eval arg env in      -- eval arg
-  apply f a                    -- apply!
-eval (ELambda f) env = VArr $
-  Closure f env -- Wrap the lambda into a closure
 eval (ECond (Cond test etrue efalse)) env =
   if to_bool $
        eval test env
   then eval etrue env
   else eval efalse env
+
+eval (EAppl (Appl fun arg)) env =
+  let VArr f = eval fun env in -- eval fun
+  let a = eval arg env in      -- eval arg
+  apply f a                    -- apply!
+
+eval (ELambda f) env = VArr $
+  Closure f env -- Wrap the lambda into a closure
+    
 eval (ELetRec l@(LetRec _ _ body)) env =
   let env' = Rec l env in -- extend env with l
   eval body env'          -- evaluate the body 
